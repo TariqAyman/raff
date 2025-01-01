@@ -1,0 +1,221 @@
+openapi: 3.0.3
+info:
+  title: Raff System API
+  version: 1.0.0
+  description: >
+    This specification describes the Raff System API, including user authentication,
+    payment processing, CSV upload, and data aggregation endpoints.
+servers:
+  - url: http://localhost:3000
+    description: Local development server
+
+tags:
+  - name: Auth
+    description: Endpoints for user login and authentication
+  - name: Payments
+    description: Payment processing and webhook handling
+  - name: Data
+    description: CSV upload and aggregation
+
+paths:
+  /login:
+    post:
+      tags:
+        - Auth
+      summary: User login
+      description: Authenticates a user and returns a JWT token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Successful login
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '400':
+          description: Missing username/password
+        '401':
+          description: Invalid credentials
+        '5XX':
+          description: Server error
+
+  /api/payments:
+    post:
+      tags:
+        - Payments
+      summary: Process a payment
+      description: Creates a payment record in the system and attempts an external gateway transaction
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaymentRequest'
+      responses:
+        '200':
+          description: Payment processed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentResponse'
+        '400':
+          description: Missing or invalid fields
+        '403':
+          description: Token invalid or user lacks permission
+        '5XX':
+          description: Internal or external payment gateway error
+
+  /api/webhook:
+    post:
+      tags:
+        - Payments
+      summary: Webhook endpoint
+      description: Receives events from external services. Idempotency enforced via `eventId`.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WebhookRequest'
+      responses:
+        '200':
+          description: Webhook handled or already processed
+        '400':
+          description: Missing `eventId`
+        '403':
+          description: Invalid token or insufficient permissions
+        '5XX':
+          description: Internal server error
+
+  /api/upload-csv:
+    post:
+      tags:
+        - Data
+      summary: Upload CSV data
+      description: Streams CSV data for processing and aggregation
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CSVUploadRequest'
+      responses:
+        '200':
+          description: CSV accepted for processing
+        '400':
+          description: CSV content missing or invalid
+        '403':
+          description: Invalid token or insufficient permissions
+        '5XX':
+          description: Internal server error
+
+  /api/aggregates:
+    get:
+      tags:
+        - Data
+      summary: Get current data aggregates
+      description: Returns real-time aggregation results from processed CSV data
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Aggregation results
+          content:
+            application/json:
+              schema:
+                type: object
+                example:
+                  Books: 150
+                  Clothing: 80
+                  Electronics: 230
+        '403':
+          description: Invalid token or insufficient permissions
+        '5XX':
+          description: Internal server error
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    LoginRequest:
+      type: object
+      required:
+        - username
+        - password
+      properties:
+        username:
+          type: string
+          example: admin
+        password:
+          type: string
+          format: password
+          example: admin
+
+    LoginResponse:
+      type: object
+      properties:
+        token:
+          type: string
+          description: JWT token for authorization
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+
+    PaymentRequest:
+      type: object
+      required:
+        - amount
+      properties:
+        amount:
+          type: number
+          description: Payment amount
+          example: 42.5
+
+    PaymentResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        transactionId:
+          type: string
+          example: 16d02c5c-4da4-4b43-af16-f959338e03e1
+
+    WebhookRequest:
+      type: object
+      required:
+        - eventId
+      properties:
+        eventId:
+          type: string
+          description: Unique event identifier to ensure idempotency
+          example: 1234-unique-5678
+        data:
+          type: object
+          description: Event payload
+          example:
+            message: "Payment completed"
+
+    CSVUploadRequest:
+      type: object
+      required:
+        - csvContent
+      properties:
+        csvContent:
+          type: string
+          description: CSV data as a single string
+          example: "category,value\nBooks,10\nClothing,25\n"
+
