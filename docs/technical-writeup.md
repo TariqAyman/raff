@@ -33,6 +33,7 @@
 - **Microservices**: Further break monoliths into specialized services (e.g., user-auth, billing, reporting).
 - **Enhanced Security**: Implement rate limiting and IP whitelisting for sensitive endpoints.
 
+```mermaid
                       +----------+
 +----------+  RabbitMQ|          |   +-------------------+
 | Payment  |<-------->| Exchange |<->| Notification Svc  |
@@ -52,3 +53,4 @@
 | Redis    |
 | Cache    |
 +----------+
+```
